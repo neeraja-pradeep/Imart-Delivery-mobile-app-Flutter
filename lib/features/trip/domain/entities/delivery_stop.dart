@@ -1,0 +1,90 @@
+import 'package:imart_delivery_app/features/trip/domain/entities/order_status.dart';
+import 'package:imart_delivery_app/features/trip/domain/entities/payment_mode.dart';
+
+/// One customer order the rider delivers, i.e. one stop on the route.
+class DeliveryStop {
+  /// Creates a stop.
+  const DeliveryStop({
+    required this.orderId,
+    required this.customerName,
+    required this.customerPhone,
+    required this.area,
+    required this.address,
+    required this.itemCount,
+    required this.distanceKm,
+    required this.etaMinutes,
+    required this.status,
+    required this.paymentMode,
+    required this.amount,
+    required this.contents,
+    required this.latitude,
+    required this.longitude,
+    required this.turnInstruction,
+  });
+
+  /// Order id, e.g. `#IM-4821`.
+  final String orderId;
+
+  /// Customer full name.
+  final String customerName;
+
+  /// Customer phone in E.164, e.g. `+919880011223`.
+  final String customerPhone;
+
+  /// Short locality.
+  final String area;
+
+  /// Full address.
+  final String address;
+
+  /// Number of line items.
+  final int itemCount;
+
+  /// Distance from the hub.
+  final double distanceKm;
+
+  /// Estimated minutes to reach.
+  final int etaMinutes;
+
+  /// Lifecycle status.
+  final OrderStatus status;
+
+  /// Payment mode.
+  final PaymentMode paymentMode;
+
+  /// Order value in rupees.
+  final int amount;
+
+  /// Line items, e.g. `1kg × Onion`.
+  final List<String> contents;
+
+  /// Drop latitude.
+  final double latitude;
+
+  /// Drop longitude.
+  final double longitude;
+
+  /// Next manoeuvre shown in the navigation banner.
+  final String turnInstruction;
+
+  /// Copy with a new [status].
+  DeliveryStop copyWith({OrderStatus? status}) {
+    return DeliveryStop(
+      orderId: orderId,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      area: area,
+      address: address,
+      itemCount: itemCount,
+      distanceKm: distanceKm,
+      etaMinutes: etaMinutes,
+      status: status ?? this.status,
+      paymentMode: paymentMode,
+      amount: amount,
+      contents: contents,
+      latitude: latitude,
+      longitude: longitude,
+      turnInstruction: turnInstruction,
+    );
+  }
+}
