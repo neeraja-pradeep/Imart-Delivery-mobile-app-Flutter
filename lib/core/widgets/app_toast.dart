@@ -54,7 +54,11 @@ class AppToast extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             AppIcon(
-              AppIconGlyph.check,
+              // A check mark on a warning made errors such as "Enter a valid
+              // 10-digit mobile number." look like a success.
+              tone == AppToastTone.warning
+                  ? AppIconGlyph.alertCircle
+                  : AppIconGlyph.check,
               size: 16,
               color: tone.foreground,
               strokeWidth: 2.4,
