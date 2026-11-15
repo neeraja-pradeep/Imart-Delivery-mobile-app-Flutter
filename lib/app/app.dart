@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 
 import 'package:imart_delivery_app/app/router/app_router.dart';
 import 'package:imart_delivery_app/app/theme/theme.dart';
+import 'package:imart_delivery_app/core/update/app_update_gate.dart';
 import 'package:imart_delivery_app/features/common/feedback/presentation/components/app_feedback_host.dart';
 
-/// Root widget: ScreenUtil scaling, theme, router and feedback host.
+/// Root widget: ScreenUtil scaling, theme, router, feedback host and the
+/// Play Store in-app update check.
 class ImartApp extends ConsumerWidget {
   /// Creates the app.
   const ImartApp({super.key});
@@ -30,7 +32,12 @@ class ImartApp extends ConsumerWidget {
               data: MediaQuery.of(
                 context,
               ).copyWith(textScaler: TextScaler.noScaling),
-              child: AppFeedbackHost(child: child ?? const SizedBox.shrink()),
+              child: AppFeedbackHost(
+                child: AppUpdateGate(
+                  navigatorKey: router.routerDelegate.navigatorKey,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
             );
           },
         );
