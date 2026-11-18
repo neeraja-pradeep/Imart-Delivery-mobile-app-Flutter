@@ -22,6 +22,7 @@ class DeliveryStop {
     required this.turnInstruction,
     this.deliveryId = '',
     this.cashDue = '',
+    this.landmark = '',
   });
 
   /// Order id, e.g. `#IM-4821`.
@@ -36,8 +37,11 @@ class DeliveryStop {
   /// Short locality.
   final String area;
 
-  /// Full address.
+  /// Full address (without the landmark).
   final String address;
+
+  /// Customer's landmark, e.g. "Opposite SBI ATM"; empty when not given.
+  final String landmark;
 
   /// Number of line items.
   final int itemCount;
@@ -96,6 +100,7 @@ class DeliveryStop {
       turnInstruction: turnInstruction,
       deliveryId: deliveryId,
       cashDue: cashDue,
+      landmark: landmark,
     );
   }
 }

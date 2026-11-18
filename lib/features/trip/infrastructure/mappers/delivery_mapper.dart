@@ -150,6 +150,7 @@ abstract final class DeliveryMapper {
           ? _string(address['locality'])
           : _string(address['city']),
       address: _address(address),
+      landmark: _string(address['landmark']),
       itemCount: _int(delivery['item_count']),
       distanceKm: _double(trip['distance_km']) ?? 0,
       etaMinutes: _int(trip['eta_minutes']),
@@ -211,7 +212,6 @@ abstract final class DeliveryMapper {
     return <String>[
       _string(a['street_address1']),
       _string(a['street_address2']),
-      _string(a['landmark']),
       cityLine,
     ].where((String s) => s.isNotEmpty).join(_addressJoin);
   }

@@ -101,6 +101,18 @@ class DeliveryPanelCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          if (stop.landmark.isNotEmpty) ...<Widget>[
+            SizedBox(height: 4.h),
+            Text(
+              AppStrings.landmark(stop.landmark),
+              style: AppTypography.body(
+                13,
+                weight: FontWeight.w600,
+                color: AppColors.textPrimary,
+                height: 1.4,
+              ),
+            ),
+          ],
           SizedBox(height: 6.h),
           Row(
             children: <Widget>[

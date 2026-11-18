@@ -276,6 +276,9 @@ abstract final class AppStrings {
   /// Item count meta.
   static String itemCount(int count) => '$count items';
 
+  /// Customer's landmark under the address.
+  static String landmark(String text) => 'Landmark: $text';
+
   /// Prepaid badge.
   static const String prepaid = 'Prepaid';
 

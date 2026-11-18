@@ -84,7 +84,8 @@ void main() {
       expect(stop.orderId, '#116');
       expect(stop.customerName, 'Anita M');
       expect(stop.customerPhone, '9000000001');
-      expect(stop.address, '12 MG Road, Near metro, Kochi 682001');
+      expect(stop.address, '12 MG Road, Kochi 682001');
+      expect(stop.landmark, 'Near metro');
       expect(stop.status, OrderStatus.outForDelivery);
       expect(stop.paymentMode, PaymentMode.cod);
       expect(stop.cashDue, '480.50');
