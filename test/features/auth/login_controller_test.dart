@@ -5,14 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:imart_delivery_app/app/config/constants.dart';
 import 'package:imart_delivery_app/features/auth/application/providers/auth_providers.dart';
 import 'package:imart_delivery_app/features/auth/application/states/login_state.dart';
+import 'package:imart_delivery_app/features/auth/domain/entities/otp_challenge.dart';
 import 'package:imart_delivery_app/features/auth/infrastructure/data_sources/remote/auth_api.dart';
 
 class _InstantAuthApi implements AuthApi {
   @override
-  Future<void> sendOtpAsync(String phone) async {}
+  Future<OtpChallenge> sendOtpAsync(String phone) async =>
+      OtpChallenge(phoneNumber: phone);
 
   @override
-  Future<bool> verifyOtpAsync(String phone, String otp) async => otp == '1234';
+  Future<bool> verifyOtpAsync(String phone, String otp) async =>
+      otp == '123456';
+
+  @override
+  Future<bool> restoreSessionAsync() async => false;
 
   @override
   Future<void> logoutAsync() async {}
@@ -43,14 +49,14 @@ void main() {
       expect(sub.read().secondsLeft, AppTimings.otpInitialSeconds - 3);
       expect(sub.read().canResend, isFalse);
 
-      c.setOtp('1111');
+      c.setOtp('111111');
       bool? ok;
       c.verifyOtpAsync().then((bool v) => ok = v);
       async.flushMicrotasks();
       expect(ok, isFalse);
       expect(sub.read().otpError, AppStrings.otpIncorrect);
 
-      c.setOtp('1234');
+      c.setOtp('123456');
       expect(sub.read().otpError, isNull);
       c.verifyOtpAsync().then((bool v) => ok = v);
       async.flushMicrotasks();

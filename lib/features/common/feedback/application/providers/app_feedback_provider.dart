@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:imart_delivery_app/app/config/constants.dart';
+import 'package:imart_delivery_app/core/error/failure.dart';
 import 'package:imart_delivery_app/features/common/feedback/application/states/app_feedback_state.dart';
 
 /// App-wide loader / toast state.
@@ -38,6 +39,10 @@ class AppFeedbackController extends StateNotifier<AppFeedbackState> {
   }
 
   /// Shows the loader with [message] while [task] runs.
+  ///
+  /// A [Failure] from [task] is shown as a warning toast (the server's
+  /// message, e.g. "This number is not registered as a delivery partner")
+  /// and then rethrown so the caller stops its flow.
   Future<T> runWithLoadingAsync<T>(
     String message,
     Future<T> Function() task,
@@ -45,6 +50,11 @@ class AppFeedbackController extends StateNotifier<AppFeedbackState> {
     state = AppFeedbackState(loadingMessage: message, toast: state.toast);
     try {
       return await task();
+    } on Failure catch (failure) {
+      if (mounted) {
+        showToast(failure.message, tone: FeedbackTone.warning);
+      }
+      rethrow;
     } finally {
       if (mounted) {
         state = AppFeedbackState(toast: state.toast);

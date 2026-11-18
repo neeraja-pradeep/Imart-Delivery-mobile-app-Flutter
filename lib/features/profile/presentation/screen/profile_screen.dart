@@ -51,7 +51,12 @@ class ProfileScreen extends ConsumerWidget {
                   AvailabilityCard(
                     onLeave: trip.onLeave,
                     canMarkLeave: trip.canMarkLeave,
-                    onMarkLeave: tripController.markLeaveAsync,
+                    onMarkLeave: () => ref
+                        .read(appFeedbackProvider.notifier)
+                        .runWithLoadingAsync(
+                          AppStrings.updatingAvailability,
+                          tripController.markLeaveAsync,
+                        ),
                     onEndLeave: () => ref
                         .read(appFeedbackProvider.notifier)
                         .runWithLoadingAsync(

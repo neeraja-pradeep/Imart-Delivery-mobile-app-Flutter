@@ -78,8 +78,8 @@ class TripCompleteScreen extends ConsumerWidget {
                     TripCompleteCard(
                       delivered: trip.deliveredCount,
                       failed: trip.failedCount,
-                      distanceKm: trip.tripDistanceKm,
-                      codCollected: trip.codCollected,
+                      distanceKm: trip.completedDistanceKm,
+                      codCollected: trip.cashToDeposit,
                     ),
                     SizedBox(height: 18.h),
                     AppButton(

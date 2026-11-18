@@ -20,6 +20,8 @@ class DeliveryStop {
     required this.latitude,
     required this.longitude,
     required this.turnInstruction,
+    this.deliveryId = '',
+    this.cashDue = '',
   });
 
   /// Order id, e.g. `#IM-4821`.
@@ -67,6 +69,13 @@ class DeliveryStop {
   /// Next manoeuvre shown in the navigation banner.
   final String turnInstruction;
 
+  /// Server delivery id used for status updates; empty for fixtures.
+  final String deliveryId;
+
+  /// Exact cash to collect as the server formats it (e.g. `"500.00"`);
+  /// empty for prepaid orders and fixtures.
+  final String cashDue;
+
   /// Copy with a new [status].
   DeliveryStop copyWith({OrderStatus? status}) {
     return DeliveryStop(
@@ -85,6 +94,8 @@ class DeliveryStop {
       latitude: latitude,
       longitude: longitude,
       turnInstruction: turnInstruction,
+      deliveryId: deliveryId,
+      cashDue: cashDue,
     );
   }
 }

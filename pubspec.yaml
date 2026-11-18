@@ -28,9 +28,26 @@ dependencies:
   # Play Store in-app updates (Android, Play installs only)
   in_app_update: ^4.2.3
   connectivity_plus: ^6.1.0
-  webview_flutter: ^4.10.0
-  web: ^1.1.0
   pointer_interceptor: ^0.10.1
+
+  # Networking (session cookie + CSRF auth)
+  dio: ^5.11.1
+  dio_cookie_manager: ^3.5.0
+  cookie_jar: ^4.0.9
+
+  # Secure storage (session cookies live in Keychain / Keystore)
+  flutter_secure_storage: ^11.2.0
+
+  # Live location while on a delivery (geolocator runs the Android
+  # "location" foreground service; permission_handler covers the battery
+  # optimisation exemption and the notification permission)
+  geolocator: ^14.1.2
+  permission_handler: ^12.0.1
+
+  # In-app map: OpenStreetMap during development (no key). Switch
+  # TripMapView to google_maps_flutter before release.
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
 
 dev_dependencies:
   flutter_test:

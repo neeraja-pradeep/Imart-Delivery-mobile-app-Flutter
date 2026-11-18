@@ -1,6 +1,8 @@
 import 'package:imart_delivery_app/core/error/failure.dart';
 import 'package:imart_delivery_app/features/trip/domain/entities/delivery_stop.dart';
 import 'package:imart_delivery_app/features/trip/domain/entities/fail_reason.dart';
+import 'package:imart_delivery_app/features/trip/domain/entities/geo_position.dart';
+import 'package:imart_delivery_app/features/trip/domain/entities/trip_wrap_up.dart';
 import 'package:imart_delivery_app/features/trip/domain/repositories/trip_repository.dart';
 import 'package:imart_delivery_app/features/trip/infrastructure/data_sources/remote/trip_api.dart';
 
@@ -20,28 +22,43 @@ class TripRepositoryImpl implements TripRepository {
       _guardAsync(_api.fetchFailReasonsAsync);
 
   @override
-  Future<void> startTripAsync(List<String> orderedStopIds) =>
-      _guardAsync(() => _api.startTripAsync(orderedStopIds));
+  Future<bool> fetchIsOnLeaveAsync() => _guardAsync(_api.fetchIsOnLeaveAsync);
 
   @override
-  Future<void> markArrivedAsync(String stopId) =>
-      _guardAsync(() => _api.markArrivedAsync(stopId));
+  Future<void> startTripAsync(List<DeliveryStop> route) =>
+      _guardAsync(() => _api.startTripAsync(route));
+
+  @override
+  Future<void> markOutForDeliveryAsync(DeliveryStop stop) =>
+      _guardAsync(() => _api.markOutForDeliveryAsync(stop));
+
+  @override
+  Future<void> markArrivedAsync(DeliveryStop stop) =>
+      _guardAsync(() => _api.markArrivedAsync(stop));
 
   @override
   Future<void> markDeliveredAsync(
-    String stopId, {
+    DeliveryStop stop, {
     required bool cashCollected,
   }) => _guardAsync(
-    () => _api.markDeliveredAsync(stopId, cashCollected: cashCollected),
+    () => _api.markDeliveredAsync(stop, cashCollected: cashCollected),
   );
 
   @override
-  Future<void> markFailedAsync(String stopId, String reasonId) =>
-      _guardAsync(() => _api.markFailedAsync(stopId, reasonId));
+  Future<void> markFailedAsync(DeliveryStop stop, String reasonId) =>
+      _guardAsync(() => _api.markFailedAsync(stop, reasonId));
 
   @override
   Future<void> setOnLeaveAsync({required bool onLeave}) =>
       _guardAsync(() => _api.setOnLeaveAsync(onLeave: onLeave));
+
+  @override
+  Future<void> pushLocationAsync(GeoPosition position) =>
+      _guardAsync(() => _api.pushLocationAsync(position));
+
+  @override
+  Future<TripWrapUp> fetchTripWrapUpAsync() =>
+      _guardAsync(_api.fetchTripWrapUpAsync);
 
   Future<T> _guardAsync<T>(Future<T> Function() call) async {
     try {

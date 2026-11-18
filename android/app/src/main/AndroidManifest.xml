@@ -1,10 +1,28 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Map WebView + API traffic in release builds. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Live location shared with the customer while on a delivery. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Keep tracking while the rider uses Google Maps or the screen is off:
+         geolocator runs a foreground service of type "location"
+         (Android 14+ needs the typed permission), shown as the
+         "Tracking your delivery" notification (Android 13+ needs
+         POST_NOTIFICATIONS to show it). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- "Keep Tracking On" sheet: the phone's own dialog to exempt the app
+         from battery optimisation, so battery savers don't stop tracking. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
         android:label="iMart Delivery"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"

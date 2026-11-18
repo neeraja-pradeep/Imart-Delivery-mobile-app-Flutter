@@ -4,10 +4,10 @@ Flutter app for iMart delivery partners: pick orders at the hub, arrange the
 route, navigate stop by stop, confirm delivery (with a cash check for COD),
 and manage availability / leave.
 
-This branch delivers the **presentation layer**, built from the Claude Design
-handoff (`iMart Delivery.dc.html` + the iMart design system). All screens run
-on **static fixture data** behind the same interfaces the real API will
-implement, so wiring the backend does not touch any widget.
+Built from the Claude Design handoff (`iMart Delivery.dc.html` + the iMart
+design system). Screens run on the delivery-partner API at
+`https://imartapp.store` by default (see **Backend integration**), or on
+static fixture data behind the same interfaces with `USE_STATIC_DATA=true`.
 
 ## Run
 
@@ -27,7 +27,8 @@ flutter run --dart-define=PREVIEW_SCREEN=navigation
 ```
 
 `PREVIEW_SCREEN`: `splash` · `login` · `loading` · `trip` · `route` ·
-`navigation` · `profile` · `empty` · `error`. Demo OTP is `1234`.
+`navigation` · `profile` · `empty` · `error`. Demo OTP (static data) is
+`123456` (the login takes a 6-digit code).
 
 ## Folder structure
 
@@ -79,25 +80,122 @@ repository contracts, static APIs, controllers) the UI needs to run.
 | `AppLoadingOverlay`, `AppToast`, `AppOfflineBanner` | feedback |
 | `ErrorView` (`core/error`) | No Trip, Connection Lost, On Leave, Navigation Locked |
 
-## Replacing static data with the API
+## Backend integration
 
-Static data lives only in `infrastructure/data_sources/remote/*_static_api.dart`.
-Each implements the feature's `*Api` interface (endpoints documented on the
-interface). To integrate, add a Dio-backed class implementing the same
-interface and return it from the provider — one line per feature:
+The app talks to the delivery-partner API documented in
+`docs/delivery_partner_api.md` (Postman collection alongside). Set the base
+URL at build time; without one the app uses `https://imartapp.store`.
 
-| Feature | Swap point | Interface |
-| --- | --- | --- |
-| Trip | `tripApiProvider` (`trip/application/providers/trip_providers.dart`) | `TripApi` |
-| Auth | `authApiProvider` (`auth/application/providers/auth_providers.dart`) | `AuthApi` |
-| Profile | `profileApiProvider` (`profile/application/providers/profile_providers.dart`) | `ProfileApi` |
+```bash
+# iMart API (default, same as API_BASE_URL=https://imartapp.store)
+flutter run
 
-The trip phase is derived from server statuses (any `outForDelivery` →
-navigating, all terminal → complete), so a resumed trip lands on the right
-screen. Turn off the demo OTP hint with
-`--dart-define=SHOW_DEMO_OTP_HINT=false` once real OTP is live. The map embed
-URL in `core/utils/map_links.dart` must move to the Maps Embed API with a
-restricted key.
+# Static fixtures, no backend (design previews)
+flutter run --dart-define=USE_STATIC_DATA=true
+
+# Local stateful mock of the API (Postman CLI), then the app on an emulator
+postman mock run postman/mocks/delivery-partner-api --port 8010
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8010
+# mock login: 9876500001 / OTP 123456
+# mock helpers: POST /__mock/reset (reseed), POST /__mock/assign (2 more
+# orders), GET /__mock/last-point (last location body, trips)
+```
+
+`USE_STATIC_DATA=true|false` overrides the choice. Plain-HTTP dev servers are
+allowed in debug builds only (`android/app/src/debug/AndroidManifest.xml`).
+
+| Layer | Where |
+| --- | --- |
+| HTTP client, CSRF, retries, error mapping | `core/network/` (`ApiClient`, `ApiEndpoints`, `NetworkExceptions`) |
+| Session cookies (Keychain / Keystore) | `core/storage/secure_cookie_storage.dart` |
+| Auth: phone + OTP, auto-login, logout | `auth/.../auth_remote_api.dart` |
+| Profile + 7-day history and earnings | `profile/.../profile_remote_api.dart`, `profile_mapper.dart` |
+| Trip: deliveries, stop order, status steps, fail reasons, leave, live location, Trip Complete figures | `trip/.../trip_remote_api.dart`, `delivery_mapper.dart`, `location_local_ds.dart` |
+
+How the fixed UI maps onto the API:
+
+- **Trip**: the server groups the rider's orders into a trip (`trip_id`,
+  `stop_number`); the app shows the open trip in that order. Orders left at
+  the warehouse aren't part of a started trip and come back for the next one.
+- **Pickup**: picking orders is local until **Start Trip**, which saves the
+  stop order (`POST /deliveries/arrange/`, orders left at the warehouse
+  last), then sends `at_pickup` → `picked_up` for each chosen order and
+  `out_for_delivery` for the first stop. Finishing a stop sends the next one
+  out for delivery. The saved order survives an app restart.
+- **Stop area**: `shipping_address.locality`, else the city.
+- **Trip Complete**: distance is the trip's `total_km`
+  (`GET /delivery-trips/{id}/`) and "Cash to deposit" is all COD cash the
+  rider holds (`cash_in_hand`, `GET /deliveries/cash-summary/`); the app's
+  own figures are used if either call fails.
+- **Profile "Last 7 days" and Trip History**: per-day stops, km and earnings
+  from `GET /payouts/v1/me/earnings/summary/?days=7`, falling back to
+  `GET /deliveries/history/` if that fails.
+- **COD**: delivered sends `cash_collected` = `order_details.amount_to_collect`.
+- **Failed**: reasons come from the server; `other` sends its label as the note
+  (the sheet has no text box).
+- **On leave** = availability `offline`; ending leave sets `online`.
+- **Vehicle**: one text field, shown as `Bike · KL07AB1234`; saving parses that
+  form back into type + number, otherwise saves the text as the number.
+- **Phone** is admin-managed and is not sent on Edit Profile.
+- **Not provided by the API**: the turn instruction (blank; directions open
+  in Google Maps). Distances and pay are straight-line, as the server
+  computes them.
+- Idle riders are checked for a new trip every 30 s.
+
+### Live location tracking
+
+- While the trip is under way, the app streams GPS through geolocator's
+  Android foreground service (type `location`), shown as the "Tracking your
+  delivery" notification. It keeps working with the app in the background
+  (e.g. Google Maps open) or the screen off, and stops when the trip ends,
+  on leave or on logout.
+- Each position goes to `POST /delivery-profiles/me/location/`, which updates
+  every active order of the rider, so every customer on the trip sees the
+  rider, not only the next stop. It carries `recorded_at` (the fix time, so a
+  late request never moves the rider backwards), and `accuracy_m`,
+  `speed_mps` and `heading` when the phone reports them. If the server
+  rejects the fix time (a phone clock running ahead), the app keeps sending
+  points without it.
+- A position is sent at most every 5 s and only after the rider moves 20 m
+  (`ApiConfig.locationPingInterval`, `locationDistanceFilterMeters`), so a
+  rider standing still sends nothing; the server doesn't treat silence as
+  offline.
+- Tracking is **required**: on **Start Trip** the app asks for location and
+  notifications, and the trip only starts once location is allowed **and**
+  the app may run without battery restrictions. Otherwise the **Keep
+  Tracking On** sheet appears with only ways to fix it: **Allow** (Android's
+  "run in background" dialog), **Open Phone Settings** (Battery →
+  Unrestricted, plus Autostart on Xiaomi / Oppo / Vivo), or **Cancel** (the
+  trip doesn't start). It re-checks when the rider returns from Settings and
+  closes itself once everything is allowed. If either setting is turned off
+  during a trip, the sheet appears again whenever the rider returns to the
+  app. Notifications are asked for but not required.
+- Code: `trip/.../local/location_local_ds.dart`,
+  `tracking_permissions_local_ds.dart`, `tracking_setup_providers.dart`,
+  `presentation/components/tracking_setup_sheet.dart`, mid-trip check in
+  `dashboard/presentation/screen/home_screen.dart`.
+- Release checklist: Play Console asks for a foreground-service (location)
+  declaration and, because of `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, a reason
+  for the battery exemption; delivery tracking is an accepted use.
+
+### In-app map
+
+- `TripMapView` (`trip/presentation/components/trip_map_view.dart`) draws the
+  Navigation and Arrange Route maps with **OpenStreetMap** tiles via
+  `flutter_map`: numbered stop pins (current stop green, finished stops grey
+  ✓), the rider's live blue dot, and framing that keeps pins clear of the
+  delivery panel. No API key needed.
+- Straight lines show the trip order: a solid green line from the rider to
+  the current stop, then a dashed line through the stops still to deliver
+  (Arrange Route: one dashed line through all stops in the chosen order).
+  They are not road routes; "Navigate" gives those.
+- If the rider's dot leaves the visible part of the map, the map re-frames
+  the rider and the current stop; otherwise it stays where the rider panned.
+- **Development only.** OpenStreetMap's tile servers don't allow production
+  app traffic. Before handover, switch `TripMapView` to `google_maps_flutter`
+  (screens pass the same data, so only that file and `MapConfig` change),
+  add the Android / iOS Maps keys, and drop the OSM credit.
+- "Navigate" still opens the Google Maps app for turn-by-turn directions.
 
 ## Design QA
 

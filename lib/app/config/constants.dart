@@ -28,10 +28,92 @@ abstract final class AppTimings {
   static const Duration tick = Duration(seconds: 1);
 }
 
+/// Networking and background-sync settings.
+abstract final class ApiConfig {
+  /// Connect / send / receive timeout for one request.
+  static const Duration timeout = Duration(seconds: 10);
+
+  /// Total attempts for an idempotent `GET` (first try + retries).
+  static const int maxGetAttempts = 4;
+
+  /// First retry delay; doubles on each further retry (2 s, 4 s, 8 s).
+  static const Duration retryBaseDelay = Duration(seconds: 2);
+
+  /// How often the app checks for a newly assigned trip while idle.
+  static const Duration newTripPollInterval = Duration(seconds: 30);
+
+  /// How often the rider's position is sent while on a delivery
+  /// (the API recommends every 3–5 s).
+  static const Duration locationPingInterval = Duration(seconds: 5);
+
+  /// Minimum movement before a new position is sent, so a rider waiting at
+  /// a door or in traffic sends almost nothing (saves battery and data).
+  static const int locationDistanceFilterMeters = 20;
+
+  /// Trip history window shown on the profile ("Last 7 days").
+  static const int historyDays = 7;
+
+  /// Upper bound of pages read from one paginated list (25 rows each).
+  static const int maxPages = 20;
+}
+
+/// In-app map settings (OpenStreetMap during development).
+///
+/// Before release the map moves to `google_maps_flutter`; only
+/// `TripMapView` and this block change.
+abstract final class MapConfig {
+  /// OpenStreetMap standard tiles. Fine for development; the OSM tile
+  /// policy does not allow production app traffic.
+  static const String tileUrl =
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  /// Identifies the app to the tile server (required by the OSM policy).
+  static const String userAgentPackageName = 'com.example.imart_delivery_app';
+
+  /// Attribution the OSM licence requires on the map.
+  static const String attribution = 'OpenStreetMap contributors';
+
+  /// Highest zoom the tile server provides.
+  static const int maxNativeZoom = 19;
+
+  /// Zoom when only one point is shown.
+  static const double singlePointZoom = 15;
+
+  /// Closest zoom when fitting several points.
+  static const double fitMaxZoom = 16;
+
+  /// Space kept around fitted points, in logical pixels.
+  static const double fitPadding = 48;
+
+  /// Height of the OpenStreetMap credit label, kept clear of pins.
+  static const double creditHeight = 24;
+
+  /// Width of the solid line from the rider to the current stop.
+  static const double activeLineWidth = 4;
+
+  /// Width of the dashed line through the stops still to deliver.
+  static const double upcomingLineWidth = 3;
+
+  /// Dash length of the upcoming-stops line.
+  static const double dashLength = 10;
+
+  /// Gap between dashes of the upcoming-stops line.
+  static const double dashGap = 8;
+
+  /// Centre / zoom when no stop has coordinates (India).
+  static const double fallbackLatitude = 20.59;
+
+  /// Centre longitude when no stop has coordinates (India).
+  static const double fallbackLongitude = 78.96;
+
+  /// Zoom when no stop has coordinates.
+  static const double fallbackZoom = 4;
+}
+
 /// Input limits.
 abstract final class AppLimits {
   /// OTP length.
-  static const int otpLength = 4;
+  static const int otpLength = 6;
 
   /// Mobile number length.
   static const int phoneLength = 10;
@@ -378,6 +460,66 @@ abstract final class AppStrings {
 
   /// Leave CTA.
   static const String endLeave = 'End Leave';
+
+  // ---- Live tracking ----
+  /// Foreground-service notification title (Android).
+  static const String trackingNotificationTitle = 'Tracking your delivery';
+
+  /// Foreground-service notification text (Android).
+  static const String trackingNotificationText =
+      'Sharing your location with the customer until this trip ends.';
+
+  /// Notification channel name shown in the phone's notification settings.
+  static const String trackingNotificationChannel = 'Delivery tracking';
+
+  /// Battery step title.
+  static const String keepTrackingOn = 'Keep Tracking On';
+
+  /// Battery step explanation.
+  static const String keepTrackingOnMessage =
+      'Allow iMart Delivery to run without battery restrictions. Without it, '
+      'some phones stop the app in the background and customers can\u2019t '
+      'see you on the way. This is needed to start a trip.';
+
+  /// Battery step hint for brand-specific settings.
+  static const String batterySettingsHint =
+      'In Settings, open Battery and choose \u201cUnrestricted\u201d or \u201cNo '
+      'restrictions\u201d. On some phones also turn on \u201cAutostart\u201d.';
+
+  /// Battery step primary CTA (opens the phone's own dialog).
+  static const String allowInBackground = 'Allow';
+
+  /// Opens the app's page in the phone's Settings.
+  static const String openPhoneSettings = 'Open Phone Settings';
+
+  /// Location step title.
+  static const String allowLocationTitle = 'Allow Location';
+
+  /// Location step explanation.
+  static const String allowLocationMessage =
+      'Your location is shared with the customer while you deliver their '
+      'order. Allow location to start the trip.';
+
+  /// Location step: GPS switched off.
+  static const String locationServiceOffMessage =
+      'Location is switched off on this phone. Turn it on to start the trip.';
+
+  /// Location step hint when the permission is blocked.
+  static const String locationBlockedHint =
+      'In Settings, open Permissions \u2192 Location and choose \u201cAllow only '
+      'while using the app\u201d.';
+
+  /// Location step CTA: ask again.
+  static const String allowLocation = 'Allow Location';
+
+  /// Location step CTA: open GPS settings.
+  static const String turnOnLocation = 'Turn On Location';
+
+  /// Loading: delivery status update.
+  static const String updatingDelivery = 'Updating delivery…';
+
+  /// Loading: leave on / off.
+  static const String updatingAvailability = 'Updating availability…';
 
   /// Locked title.
   static const String navigationLocked = 'Navigation Locked';

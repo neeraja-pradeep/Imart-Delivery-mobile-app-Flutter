@@ -4,15 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:imart_delivery_app/app/config/constants.dart';
 import 'package:imart_delivery_app/app/config/env.dart';
+import 'package:imart_delivery_app/core/error/failure.dart';
+import 'package:imart_delivery_app/core/network/network_providers.dart';
+import 'package:imart_delivery_app/core/utils/logger.dart';
 import 'package:imart_delivery_app/features/auth/application/states/login_state.dart';
+import 'package:imart_delivery_app/features/auth/domain/entities/otp_challenge.dart';
 import 'package:imart_delivery_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:imart_delivery_app/features/auth/infrastructure/data_sources/remote/auth_api.dart';
+import 'package:imart_delivery_app/features/auth/infrastructure/data_sources/remote/auth_remote_api.dart';
 import 'package:imart_delivery_app/features/auth/infrastructure/data_sources/remote/auth_static_api.dart';
 import 'package:imart_delivery_app/features/auth/infrastructure/repositories/auth_repository_impl.dart';
 
-/// Auth data source. **Swap point for API integration.**
+/// Auth data source: the backend, or fixtures when no `API_BASE_URL` is set.
 final Provider<AuthApi> authApiProvider = Provider<AuthApi>(
-  (Ref ref) => const AuthStaticApi(),
+  (Ref ref) => Env.current.useStaticData
+      ? const AuthStaticApi()
+      : AuthRemoteApi(ref.watch(apiClientProvider)),
 );
 
 /// Auth repository.
@@ -22,13 +29,26 @@ final Provider<AuthRepository> authRepositoryProvider =
     );
 
 /// Whether the rider is signed in. Drives the router's auth guard.
+///
+/// On start it validates any stored session with the server (auto-login),
+/// and it signs out when the server reports the session has expired.
 final StateNotifierProvider<SessionController, bool> isAuthenticatedProvider =
-    StateNotifierProvider<SessionController, bool>(
-      (Ref ref) => SessionController(
+    StateNotifierProvider<SessionController, bool>((Ref ref) {
+      final bool previewSignedIn = _previewStartsSignedIn(
+        Env.current.previewScreen,
+      );
+      final SessionController controller = SessionController(
         ref.watch(authRepositoryProvider),
-        initiallySignedIn: _previewStartsSignedIn(Env.current.previewScreen),
-      ),
-    );
+        initiallySignedIn: previewSignedIn,
+        signedOutEvents: Env.current.useStaticData
+            ? null
+            : ref.watch(apiClientProvider).signedOutEvents,
+      );
+      if (!previewSignedIn) {
+        unawaited(controller.restoreAsync());
+      }
+      return controller;
+    });
 
 /// Login form controller (disposed when the login screen closes).
 final AutoDisposeStateNotifierProvider<LoginController, LoginState>
@@ -42,19 +62,57 @@ bool _previewStartsSignedIn(PreviewScreen screen) =>
 
 /// Holds the signed-in flag.
 class SessionController extends StateNotifier<bool> {
-  /// Creates the controller.
-  SessionController(this._repository, {bool initiallySignedIn = false})
-    : super(initiallySignedIn);
+  /// Creates the controller; [signedOutEvents] fire when the server rejects
+  /// the session.
+  SessionController(
+    this._repository, {
+    bool initiallySignedIn = false,
+    Stream<void>? signedOutEvents,
+  }) : super(initiallySignedIn) {
+    _signedOutSub = signedOutEvents?.listen((_) => _expire());
+  }
 
   final AuthRepository _repository;
+  StreamSubscription<void>? _signedOutSub;
+
+  @override
+  void dispose() {
+    _signedOutSub?.cancel();
+    super.dispose();
+  }
+
+  /// Signs in silently when a stored session is still valid.
+  Future<void> restoreAsync() async {
+    try {
+      final bool valid = await _repository.restoreSessionAsync();
+      if (valid && mounted) {
+        state = true;
+      }
+    } on Failure catch (failure) {
+      AppLogger.log('Session restore failed', error: failure);
+    }
+  }
 
   /// Marks the session active after a successful OTP verification.
   void signIn() => state = true;
 
-  /// Ends the session.
+  /// Ends the session. The rider is signed out locally even when the
+  /// server call fails.
   Future<void> logoutAsync() async {
-    await _repository.logoutAsync();
-    state = false;
+    try {
+      await _repository.logoutAsync();
+    } finally {
+      if (mounted) {
+        state = false;
+      }
+    }
+  }
+
+  void _expire() {
+    if (mounted && state) {
+      AppLogger.log('Session expired; signing out');
+      state = false;
+    }
   }
 }
 
@@ -80,13 +138,36 @@ class LoginController extends StateNotifier<LoginState> {
       state = state.copyWith(otp: value, clearError: true);
 
   /// Sends the OTP and moves to the OTP step.
+  ///
+  /// Sent again too soon (after "Edit number" with the same number), the
+  /// earlier code is still valid: go straight back to the OTP step with the
+  /// server's remaining wait.
   Future<void> sendOtpAsync() async {
-    await _repository.sendOtpAsync(state.phone);
+    final OtpChallenge challenge;
+    try {
+      challenge = await _repository.sendOtpAsync(state.phone);
+    } on ServerFailure catch (failure) {
+      final int? wait = failure.retryAfterSeconds;
+      final String sentTo = state.challengePhone ?? '';
+      final String digits = state.phone.replaceAll(RegExp(r'\D'), '');
+      if (wait == null || digits.isEmpty || !sentTo.endsWith(digits)) {
+        rethrow;
+      }
+      state = state.copyWith(
+        step: LoginStep.otp,
+        otp: '',
+        clearError: true,
+        secondsLeft: wait,
+      );
+      _startCountdown();
+      return;
+    }
     state = state.copyWith(
       step: LoginStep.otp,
       otp: '',
       clearError: true,
-      secondsLeft: AppTimings.otpInitialSeconds,
+      challengePhone: challenge.phoneNumber,
+      secondsLeft: challenge.resendAfterSeconds ?? AppTimings.otpInitialSeconds,
     );
     _startCountdown();
   }
@@ -96,23 +177,45 @@ class LoginController extends StateNotifier<LoginState> {
     if (!state.canResend) {
       return;
     }
-    await _repository.sendOtpAsync(state.phone);
-    state = state.copyWith(
-      otp: '',
-      clearError: true,
-      secondsLeft: AppTimings.otpResendSeconds,
-    );
-    _startCountdown();
+    try {
+      final OtpChallenge challenge = await _repository.sendOtpAsync(
+        state.phone,
+      );
+      state = state.copyWith(
+        otp: '',
+        clearError: true,
+        challengePhone: challenge.phoneNumber,
+        secondsLeft:
+            challenge.resendAfterSeconds ?? AppTimings.otpResendSeconds,
+      );
+      _startCountdown();
+    } on ServerFailure catch (failure) {
+      final int? wait = failure.retryAfterSeconds;
+      if (wait == null) {
+        rethrow;
+      }
+      // Resent too soon: restart the countdown with the server's wait.
+      state = state.copyWith(secondsLeft: wait);
+      _startCountdown();
+    }
   }
 
   /// Verifies the OTP. Returns `true` on success; otherwise sets the
-  /// inline error.
+  /// inline error (wrong, expired or too many attempts).
   Future<bool> verifyOtpAsync() async {
-    final bool ok = await _repository.verifyOtpAsync(state.phone, state.otp);
-    if (!ok) {
-      state = state.copyWith(otpError: AppStrings.otpIncorrect);
+    try {
+      final bool ok = await _repository.verifyOtpAsync(
+        state.challengePhone ?? state.phone,
+        state.otp,
+      );
+      if (!ok) {
+        state = state.copyWith(otpError: AppStrings.otpIncorrect);
+      }
+      return ok;
+    } on ServerFailure catch (failure) {
+      state = state.copyWith(otpError: failure.message);
+      return false;
     }
-    return ok;
   }
 
   /// Returns to the phone step.

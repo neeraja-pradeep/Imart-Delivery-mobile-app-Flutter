@@ -1,0 +1,13 @@
+version: 1
+name: delivery-partner-api
+slug: delivery-partner-api
+protocol: http
+port: 8010
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true
+generatedFrom:
+  type: collection
+  mode: stateful
+  path: ../../../docs/imart_delivery_partner_api.postman_collection.json

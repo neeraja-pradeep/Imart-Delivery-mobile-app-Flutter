@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import 'package:imart_delivery_app/app/config/constants.dart';
 import 'package:imart_delivery_app/app/router/app_routes.dart';
+import 'package:imart_delivery_app/core/widgets/app_bottom_sheet.dart';
 import 'package:imart_delivery_app/core/widgets/app_icon.dart';
 import 'package:imart_delivery_app/core/widgets/navbar.dart';
 import 'package:imart_delivery_app/features/common/feedback/application/providers/app_feedback_provider.dart';
 import 'package:imart_delivery_app/features/dashboard/presentation/components/trip_load_error_section.dart';
+import 'package:imart_delivery_app/features/trip/application/providers/tracking_setup_providers.dart';
 import 'package:imart_delivery_app/features/trip/application/providers/trip_providers.dart';
 import 'package:imart_delivery_app/features/trip/application/states/trip_state.dart';
+import 'package:imart_delivery_app/features/trip/presentation/components/tracking_setup_sheet.dart';
 
 /// Signed-in shell: active tab content, fixed bottom nav, and the
 /// full-screen "Connection Lost" state when the trip fails to load.
@@ -27,7 +30,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   static const List<AppNavItem> _items = <AppNavItem>[
     AppNavItem(label: AppStrings.tabTrip, glyph: AppIconGlyph.home),
     AppNavItem(label: AppStrings.tabMap, glyph: AppIconGlyph.navigation),
@@ -39,10 +43,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     AppRoutes.profile,
   ];
 
+  bool _trackingSheetOpen = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadIfIdleAsync());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Back in the app during a trip: if location or the battery exemption was
+  // turned off meanwhile, ask again — tracking can't run without them.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkTrackingAsync();
+    }
+  }
+
+  Future<void> _checkTrackingAsync() async {
+    final bool onTrip =
+        ref.read(tripControllerProvider).phase == TripPhase.enroute;
+    if (!onTrip || _trackingSheetOpen) {
+      return;
+    }
+    final bool ready = await ref
+        .read(trackingSetupControllerProvider.notifier)
+        .recheckAsync();
+    if (ready || !mounted || _trackingSheetOpen) {
+      return;
+    }
+    _trackingSheetOpen = true;
+    await AppBottomSheet.show<bool>(
+      context: context,
+      builder: (_) => const TrackingSetupSheet(),
+    );
+    _trackingSheetOpen = false;
   }
 
   Future<void> _loadIfIdleAsync() async {
@@ -61,6 +103,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           AppStrings.loadingTrip,
           ref.read(tripControllerProvider.notifier).loadTripAsync,
         );
+    // A trip resumed after a restart: make sure tracking can run.
+    await _checkTrackingAsync();
   }
 
   int get _currentIndex {

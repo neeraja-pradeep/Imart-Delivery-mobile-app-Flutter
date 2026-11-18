@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:imart_delivery_app/app/app.dart';
 import 'package:imart_delivery_app/app/config/env.dart';
+import 'package:imart_delivery_app/core/error/failure.dart';
 import 'package:imart_delivery_app/core/utils/date_utils.dart';
 import 'package:imart_delivery_app/core/utils/logger.dart';
 
@@ -22,6 +23,12 @@ abstract final class AppBootstrap {
         error: details.exception,
         stackTrace: details.stack,
       );
+    };
+    // Failed actions (e.g. a rejected status update) already show a toast;
+    // log them here instead of letting them surface as uncaught errors.
+    PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+      AppLogger.log('Uncaught error', error: error, stackTrace: stack);
+      return error is Failure;
     };
     runApp(const ProviderScope(child: ImartApp()));
   }

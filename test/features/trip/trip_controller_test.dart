@@ -3,7 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:imart_delivery_app/features/trip/application/providers/trip_providers.dart';
 import 'package:imart_delivery_app/features/trip/application/states/trip_state.dart';
+import 'package:imart_delivery_app/features/trip/domain/entities/delivery_stop.dart';
 import 'package:imart_delivery_app/features/trip/domain/entities/order_status.dart';
+import 'package:imart_delivery_app/features/trip/domain/entities/trip_wrap_up.dart';
+
+import 'package:imart_delivery_app/features/trip/infrastructure/data_sources/remote/trip_static_api.dart';
 
 import '../../helpers/fake_trip_api.dart';
 
@@ -32,7 +36,9 @@ void main() {
     expect(state().phase, TripPhase.pickup);
     expect(state().stopCount, 4);
     expect(state().summaryItems, 19);
-    expect(state().summaryEtaMinutes, 72);
+    // Warehouse -> stop 1 ETA, then the straight-line legs between stops at
+    // the same pace (was the sum of every stop's own warehouse ETA: 72).
+    expect(state().summaryEtaMinutes, 80);
     expect(state().canStartTrip, isFalse);
   });
 
@@ -116,7 +122,49 @@ void main() {
     await controller().markDeliveredAsync(cashCollected: true);
     await controller().markDeliveredAsync(cashCollected: true);
     expect(state().codCollected, 872);
-    expect(state().tripDistanceKm, closeTo(15.1, 0.001));
+    // Warehouse -> stop 1, then the straight-line legs between the stops'
+    // coordinates (was the sum of each stop's warehouse distance: 15.1).
+    expect(state().tripDistanceKm, closeTo(17.759, 0.001));
+  });
+
+  test('Trip Complete uses the server distance and cash in hand', () async {
+    api.wrapUp = const TripWrapUp(distanceKm: 6.4, cashToDeposit: 1872);
+    controller().setPicked('#IM-4822', picked: true);
+    await controller().startNavigationAsync();
+    await controller().markDeliveredAsync(cashCollected: true);
+    expect(state().phase, TripPhase.complete);
+    expect(state().completedDistanceKm, 6.4);
+    expect(state().cashToDeposit, 1872);
+  });
+
+  test('Trip Complete falls back to the app figures', () async {
+    controller().setPicked('#IM-4822', picked: true);
+    await controller().startNavigationAsync();
+    await controller().markDeliveredAsync(cashCollected: true);
+    expect(state().completedDistanceKm, state().tripDistanceKm);
+    expect(state().cashToDeposit, state().codCollected);
+  });
+
+  test('a resumed trip leaves out orders left at the warehouse', () async {
+    final List<DeliveryStop> stops = await TripStaticApi()
+        .fetchAssignedStopsAsync();
+    api.servedStops = <DeliveryStop>[
+      stops[0].copyWith(status: OrderStatus.outForDelivery),
+      stops[1].copyWith(status: OrderStatus.pickedUp),
+      stops[2],
+    ];
+    await controller().loadTripAsync();
+    expect(state().phase, TripPhase.enroute);
+    expect(state().stopCount, 2);
+    expect(state().currentStop?.orderId, stops[0].orderId);
+  });
+
+  test('a rider with no trip can go on leave', () async {
+    api.servedStops = const <DeliveryStop>[];
+    await controller().loadTripAsync();
+    expect(state().canMarkLeave, isTrue);
+    await controller().markLeaveAsync();
+    expect(api.leaveCalls, <bool>[true]);
   });
 
   test('leave is blocked until the trip is complete', () async {

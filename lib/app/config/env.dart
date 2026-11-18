@@ -1,6 +1,8 @@
 /// Runtime environment, resolved from `--dart-define` values.
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 
 /// Start screens mirroring the design prototype's "Start Screen" tweak.
@@ -50,21 +52,41 @@ class Env {
   static const String _apiKey = 'API_BASE_URL';
   static const String _staticKey = 'USE_STATIC_DATA';
 
+  /// iMart API used when no `API_BASE_URL` is passed.
+  static const String _defaultApiBaseUrl = 'https://imartapp.store';
+
+  static const String _resolvedApiBaseUrl = String.fromEnvironment(
+    _apiKey,
+    defaultValue: _defaultApiBaseUrl,
+  );
+
   /// Environment resolved once at startup.
   static final Env current = Env._(
-    apiBaseUrl: const String.fromEnvironment(_apiKey),
-    useStaticData: const bool.fromEnvironment(_staticKey, defaultValue: true),
+    apiBaseUrl: _resolvedApiBaseUrl,
+    useStaticData: const bool.hasEnvironment(_staticKey)
+        ? const bool.fromEnvironment(_staticKey)
+        : _resolvedApiBaseUrl.isEmpty || _isFlutterTest,
     previewScreen: _parsePreview(_define(_previewKey, _previewQuery)),
     previewNow: DateTime.tryParse(_define(_nowKey, _nowQuery)),
   );
 
+  /// `flutter test` sets this variable; tests never call the real server.
+  static const String _flutterTestVariable = 'FLUTTER_TEST';
+
+  static bool get _isFlutterTest =>
+      !kIsWeb && Platform.environment.containsKey(_flutterTestVariable);
+
   static const String _previewQuery = 'preview';
   static const String _nowQuery = 'now';
 
-  /// Backend base URL (empty until the API layer lands).
+  /// Backend base URL. Defaults to `https://imartapp.store`; override with
+  /// `--dart-define=API_BASE_URL=...` (an Android emulator reaches a dev
+  /// server on the host at `http://10.0.2.2:8010`).
   final String apiBaseUrl;
 
-  /// Serve static fixtures instead of calling the API.
+  /// Serve static fixtures instead of calling the API. Defaults to `false`
+  /// (the API is used), and `true` under `flutter test`; pass
+  /// `USE_STATIC_DATA=true|false` to override.
   final bool useStaticData;
 
   /// Design-preview start screen.

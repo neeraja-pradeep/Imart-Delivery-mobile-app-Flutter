@@ -19,6 +19,7 @@ import 'package:imart_delivery_app/features/trip/domain/entities/delivery_stop.d
 import 'package:imart_delivery_app/features/trip/presentation/components/delivery_route_header_section.dart';
 import 'package:imart_delivery_app/features/trip/presentation/components/pickup_banner_card.dart';
 import 'package:imart_delivery_app/features/trip/presentation/components/stop_card.dart';
+import 'package:imart_delivery_app/features/trip/presentation/components/tracking_setup_sheet.dart';
 import 'package:imart_delivery_app/features/trip/presentation/components/trip_header_section.dart';
 import 'package:imart_delivery_app/features/trip/presentation/components/trip_summary_card.dart';
 
@@ -141,6 +142,16 @@ class TripListScreen extends ConsumerWidget {
   }
 
   Future<void> _onStartTripAsync(BuildContext context, WidgetRef ref) async {
+    // Live tracking is required: the trip starts only once location and
+    // running without battery restrictions are both allowed, so the
+    // customer's map never freezes mid-delivery.
+    final bool trackingReady = await TrackingSetupSheet.ensureReadyAsync(
+      context,
+      ref,
+    );
+    if (!trackingReady || !context.mounted) {
+      return;
+    }
     final TripController controller = ref.read(tripControllerProvider.notifier);
     if (controller.beginArrange()) {
       return;

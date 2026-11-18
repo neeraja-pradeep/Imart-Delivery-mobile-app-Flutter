@@ -1,4 +1,5 @@
 import 'package:imart_delivery_app/core/error/failure.dart';
+import 'package:imart_delivery_app/features/auth/domain/entities/otp_challenge.dart';
 import 'package:imart_delivery_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:imart_delivery_app/features/auth/infrastructure/data_sources/remote/auth_api.dart';
 
@@ -10,12 +11,15 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthApi _api;
 
   @override
-  Future<void> sendOtpAsync(String phone) =>
+  Future<OtpChallenge> sendOtpAsync(String phone) =>
       _guardAsync(() => _api.sendOtpAsync(phone));
 
   @override
   Future<bool> verifyOtpAsync(String phone, String otp) =>
       _guardAsync(() => _api.verifyOtpAsync(phone, otp));
+
+  @override
+  Future<bool> restoreSessionAsync() => _guardAsync(_api.restoreSessionAsync);
 
   @override
   Future<void> logoutAsync() => _guardAsync(_api.logoutAsync);

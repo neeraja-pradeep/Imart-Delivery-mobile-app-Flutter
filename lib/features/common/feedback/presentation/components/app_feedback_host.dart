@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -25,7 +27,11 @@ class AppFeedbackHost extends ConsumerWidget {
     final AppFeedbackState feedback = ref.watch(appFeedbackProvider);
     final bool offline = ref.watch(isOfflineProvider).valueOrNull ?? false;
     final double statusTop = MediaQuery.paddingOf(context).top;
-    final double bottomInset = MediaQuery.paddingOf(context).bottom;
+    // Keep the toast above the keyboard (e.g. a login error while typing).
+    final double bottomInset = math.max(
+      MediaQuery.paddingOf(context).bottom,
+      MediaQuery.viewInsetsOf(context).bottom,
+    );
     final FeedbackToast? toast = feedback.toast;
     return Stack(
       children: <Widget>[

@@ -2,6 +2,8 @@ import 'package:imart_delivery_app/app/config/env.dart';
 import 'package:imart_delivery_app/core/error/failure.dart';
 import 'package:imart_delivery_app/features/trip/domain/entities/delivery_stop.dart';
 import 'package:imart_delivery_app/features/trip/domain/entities/fail_reason.dart';
+import 'package:imart_delivery_app/features/trip/domain/entities/geo_position.dart';
+import 'package:imart_delivery_app/features/trip/domain/entities/trip_wrap_up.dart';
 import 'package:imart_delivery_app/features/trip/domain/entities/order_status.dart';
 import 'package:imart_delivery_app/features/trip/domain/entities/payment_mode.dart';
 import 'package:imart_delivery_app/features/trip/infrastructure/data_sources/remote/trip_api.dart';
@@ -22,6 +24,7 @@ class TripStaticApi implements TripApi {
   final PreviewScreen preview;
 
   int _fetchCount = 0;
+  bool _onLeave = false;
 
   @override
   Future<List<DeliveryStop>> fetchAssignedStopsAsync() async {
@@ -53,23 +56,36 @@ class TripStaticApi implements TripApi {
   Future<List<FailReason>> fetchFailReasonsAsync() async => _failReasons;
 
   @override
-  Future<void> startTripAsync(List<String> orderedStopIds) =>
+  Future<bool> fetchIsOnLeaveAsync() async => _onLeave;
+
+  @override
+  Future<void> startTripAsync(List<DeliveryStop> route) =>
       Future<void>.delayed(_startLatency);
 
   @override
-  Future<void> markArrivedAsync(String stopId) async {}
+  Future<void> markOutForDeliveryAsync(DeliveryStop stop) async {}
+
+  @override
+  Future<void> markArrivedAsync(DeliveryStop stop) async {}
 
   @override
   Future<void> markDeliveredAsync(
-    String stopId, {
+    DeliveryStop stop, {
     required bool cashCollected,
   }) async {}
 
   @override
-  Future<void> markFailedAsync(String stopId, String reasonId) async {}
+  Future<void> markFailedAsync(DeliveryStop stop, String reasonId) async {}
 
   @override
-  Future<void> setOnLeaveAsync({required bool onLeave}) async {}
+  Future<void> setOnLeaveAsync({required bool onLeave}) async =>
+      _onLeave = onLeave;
+
+  @override
+  Future<void> pushLocationAsync(GeoPosition position) async {}
+
+  @override
+  Future<TripWrapUp> fetchTripWrapUpAsync() async => TripWrapUp.none;
 
   List<DeliveryStop> _withStatuses(OrderStatus status) =>
       _stops.map((DeliveryStop s) => s.copyWith(status: status)).toList();

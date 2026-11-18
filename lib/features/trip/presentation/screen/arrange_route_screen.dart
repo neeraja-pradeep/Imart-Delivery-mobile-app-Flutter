@@ -9,7 +9,6 @@ import 'package:imart_delivery_app/app/theme/colors.dart';
 import 'package:imart_delivery_app/app/theme/theme.dart';
 import 'package:imart_delivery_app/app/theme/typography.dart';
 import 'package:imart_delivery_app/core/utils/format_utils.dart';
-import 'package:imart_delivery_app/core/utils/map_links.dart';
 import 'package:imart_delivery_app/core/widgets/app_action_bar.dart';
 import 'package:imart_delivery_app/core/widgets/app_button.dart';
 import 'package:imart_delivery_app/core/widgets/app_icon.dart';
@@ -19,7 +18,7 @@ import 'package:imart_delivery_app/features/common/feedback/application/provider
 import 'package:imart_delivery_app/features/trip/application/providers/trip_providers.dart';
 import 'package:imart_delivery_app/features/trip/application/states/trip_state.dart';
 import 'package:imart_delivery_app/features/trip/presentation/components/arrange_stop_tile.dart';
-import 'package:imart_delivery_app/features/trip/presentation/components/map_embed_view.dart';
+import 'package:imart_delivery_app/features/trip/presentation/components/trip_map_view.dart';
 
 /// Second step after Start Trip: order the picked stops, then start
 /// navigation.
@@ -30,8 +29,6 @@ class ArrangeRouteScreen extends ConsumerWidget {
   static const double _listTop = 104;
   static const double _mapHeight = 180;
   static const double _listBottom = 150;
-  static const double _overviewLat = 12.95;
-  static const double _overviewLng = 77.64;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -68,9 +65,7 @@ class ArrangeRouteScreen extends ConsumerWidget {
                   children: <Widget>[
                     SizedBox(
                       height: _mapHeight.h,
-                      child: MapEmbedView(
-                        url: MapLinks.overview(_overviewLat, _overviewLng),
-                      ),
+                      child: TripMapView(stops: trip.stops),
                     ),
                     Padding(
                       padding: EdgeInsets.symmetric(

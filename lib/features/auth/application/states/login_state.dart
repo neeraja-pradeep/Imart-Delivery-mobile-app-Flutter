@@ -16,6 +16,7 @@ class LoginState {
     this.otp = '',
     this.otpError,
     this.secondsLeft = 0,
+    this.challengePhone,
   });
 
   /// Current step.
@@ -33,6 +34,10 @@ class LoginState {
   /// Seconds until "Resend OTP" unlocks.
   final int secondsLeft;
 
+  /// The number the OTP was sent to, as the server normalised it; sent back
+  /// unchanged when verifying. `null` until an OTP was sent.
+  final String? challengePhone;
+
   /// Whether resend is available.
   bool get canResend => secondsLeft == 0;
 
@@ -44,6 +49,7 @@ class LoginState {
     String? otpError,
     bool clearError = false,
     int? secondsLeft,
+    String? challengePhone,
   }) {
     return LoginState(
       step: step ?? this.step,
@@ -51,6 +57,7 @@ class LoginState {
       otp: otp ?? this.otp,
       otpError: clearError ? null : (otpError ?? this.otpError),
       secondsLeft: secondsLeft ?? this.secondsLeft,
+      challengePhone: challengePhone ?? this.challengePhone,
     );
   }
 }

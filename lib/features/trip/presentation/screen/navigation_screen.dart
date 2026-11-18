@@ -23,8 +23,8 @@ import 'package:imart_delivery_app/features/trip/domain/entities/payment_mode.da
 import 'package:imart_delivery_app/features/trip/presentation/components/confirm_delivery_sheet.dart';
 import 'package:imart_delivery_app/features/trip/presentation/components/delivery_panel_card.dart';
 import 'package:imart_delivery_app/features/trip/presentation/components/fail_delivery_sheet.dart';
-import 'package:imart_delivery_app/features/trip/presentation/components/map_embed_view.dart';
 import 'package:imart_delivery_app/features/trip/presentation/components/navigation_header_section.dart';
+import 'package:imart_delivery_app/features/trip/presentation/components/trip_map_view.dart';
 
 /// Live delivery to the current stop: embedded map, turn banner and the
 /// stop panel with Call / Navigate / Arrived / Delivered / Failed.
@@ -33,6 +33,10 @@ class NavigationScreen extends ConsumerWidget {
   const NavigationScreen({super.key});
 
   static const double _mapTop = 96;
+
+  // Share of the map's height under the delivery panel, kept clear when
+  // framing the current stop and the rider.
+  static const double _panelCover = 0.55;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,8 +58,17 @@ class NavigationScreen extends ConsumerWidget {
               left: 0,
               right: 0,
               bottom: navBottom,
-              child: MapEmbedView(
-                url: MapLinks.embed(stop.latitude, stop.longitude),
+              // Only the map rebuilds on each GPS fix, not the whole screen.
+              child: Consumer(
+                builder: (BuildContext _, WidgetRef mapRef, Widget? _) =>
+                    TripMapView(
+                      stops: trip.stops,
+                      currentIndex: trip.currentIndex,
+                      rider: mapRef.watch(riderPositionProvider),
+                      obscuredBottom: _panelCover,
+                      // The delivery panel covers the bottom of the map.
+                      attributionAlignment: Alignment.topRight,
+                    ),
               ),
             ),
             Positioned(
@@ -120,12 +133,19 @@ class NavigationScreen extends ConsumerWidget {
     if (confirmed != true) {
       return;
     }
-    await ref
-        .read(tripControllerProvider.notifier)
-        .markDeliveredAsync(cashCollected: stop.paymentMode == PaymentMode.cod);
-    ref
-        .read(appFeedbackProvider.notifier)
-        .showToast(AppStrings.toastDelivered(stop.customerName));
+    // Read before awaiting: after the last stop this screen is replaced by
+    // Trip Complete, and `ref` can't be used once it's gone.
+    final AppFeedbackController feedback = ref.read(
+      appFeedbackProvider.notifier,
+    );
+    final TripController trip = ref.read(tripControllerProvider.notifier);
+    await feedback.runWithLoadingAsync(
+      AppStrings.updatingDelivery,
+      () => trip.markDeliveredAsync(
+        cashCollected: stop.paymentMode == PaymentMode.cod,
+      ),
+    );
+    feedback.showToast(AppStrings.toastDelivered(stop.customerName));
   }
 
   Future<void> _onFailedAsync(BuildContext context, WidgetRef ref) async {
@@ -137,9 +157,14 @@ class NavigationScreen extends ConsumerWidget {
     if (reasonId == null) {
       return;
     }
-    await ref.read(tripControllerProvider.notifier).markFailedAsync(reasonId);
-    ref
-        .read(appFeedbackProvider.notifier)
-        .showToast(AppStrings.toastFailed, tone: FeedbackTone.warning);
+    final AppFeedbackController feedback = ref.read(
+      appFeedbackProvider.notifier,
+    );
+    final TripController trip = ref.read(tripControllerProvider.notifier);
+    await feedback.runWithLoadingAsync(
+      AppStrings.updatingDelivery,
+      () => trip.markFailedAsync(reasonId),
+    );
+    feedback.showToast(AppStrings.toastFailed, tone: FeedbackTone.warning);
   }
 }
